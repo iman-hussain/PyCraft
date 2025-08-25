@@ -41,7 +41,7 @@ class Voxel(Button):
             color=block_color,
             highlight_color=block_color.tint(.2),
             scale=1,
-            # Every block has a collider, making it a solid object.
+            # DEFINITIVE FIX: Every single block now has a solid collider. This is the most reliable method.
             collider='box'
         )
         # This flag is used to make the initial ground indestructible.
@@ -55,12 +55,10 @@ class Voxel(Button):
                     destroy(self)
 
             if key == 'right mouse down':
-                # --- BUG FIX: Prevent placing a block inside the player ---
-                # Calculate the position of the new block.
+                # Prevent placing a block inside the player.
                 new_block_position = self.position + mouse.normal
-                # Check the distance between the new block and the player.
-                # If it's too close, don't place the block.
                 if distance(new_block_position, player.position) > 1.5:
+                    # Place a new block. It will be solid and NOT a ground block by default.
                     Voxel(position=new_block_position, block_color=block_colors[block_pick])
 
 # --- World Generation ---
@@ -70,13 +68,13 @@ for z in range(world_size):
         # Create the ground blocks. They are solid and marked as indestructible.
         Voxel(position=(x, 0, z), block_color=color.green, is_ground=True)
 
+
 # --- UI Toolbar ---
 # This section creates the clickable toolbar at the bottom of the screen.
 toolbar = Entity(parent=camera.ui, position=(0, -0.45))
 toolbar_slots = []
 
-# --- IMPROVEMENT: Clickable Toolbar Logic ---
-# This function will be called when a toolbar slot is clicked.
+# This function will be called when a toolbar slot is clicked or a number key is pressed.
 def set_block_pick(index):
     global block_pick
     block_pick = index
@@ -96,30 +94,48 @@ for i, bc in enumerate(block_colors):
     )
     toolbar_slots.append(slot)
 
+# --- NEW: Rainbow Selection Cursor ---
 # A highlight to show the selected block.
-selection_cursor = Entity(parent=toolbar, model='quad', scale=0.08, color=color.white, z=-1)
+selection_cursor = Entity(
+    parent=toolbar,
+    model='quad',
+    scale=0.08,
+    # Using the built-in rainbow texture for the border.
+    texture='rainbow',
+    z=-1
+)
 # Initialize the cursor position to the starting block.
 selection_cursor.x = toolbar_slots[block_pick].x
 
 
 # --- Input Handling and Game Logic ---
 def update():
-    # --- BUG FIX: Keep player within world boundaries ---
+    # Keep player within world boundaries.
     if player.x < 0: player.x = 0
     if player.x > world_size -1: player.x = world_size -1
     if player.z < 0: player.z = 0
     if player.z > world_size -1: player.z = world_size -1
 
+# This function is called by Ursina once for every key press.
+def input(key):
+    global block_pick
+    # Mouse Wheel Block Selection
+    if key == 'scroll up':
+        block_pick = (block_pick + 1) % len(block_colors)
+        set_block_pick(block_pick)
+    if key == 'scroll down':
+        block_pick = (block_pick - 1) % len(block_colors)
+        set_block_pick(block_pick)
 
-    # Handle block selection with number keys 1 through 8
-    if held_keys['1']: set_block_pick(0)
-    if held_keys['2']: set_block_pick(1)
-    if held_keys['3']: set_block_pick(2)
-    if held_keys['4']: set_block_pick(3)
-    if held_keys['5']: set_block_pick(4)
-    if held_keys['6']: set_block_pick(5)
-    if held_keys['7']: set_block_pick(6)
-    if held_keys['8']: set_block_pick(7)
+    # Handle block selection with number keys 1 through 8.
+    if key == '1': set_block_pick(0)
+    if key == '2': set_block_pick(1)
+    if key == '3': set_block_pick(2)
+    if key == '4': set_block_pick(3)
+    if key == '5': set_block_pick(4)
+    if key == '6': set_block_pick(5)
+    if key == '7': set_block_pick(6)
+    if key == '8': set_block_pick(7)
 
 
 # --- Instantiate Player and Sky ---
