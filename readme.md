@@ -3,7 +3,7 @@
 
 A simple and fun voxel-based sandbox game built with Python and the Ursina engine. Create, build, and save your 3D creations in a colorful block world!
 
-![PyCraft UI](./PyCraft UI.png)
+![PyCraft UI](PyCraft UI.png)
 
 ## Features
 
