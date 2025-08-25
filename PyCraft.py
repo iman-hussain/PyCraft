@@ -4,8 +4,16 @@
 from ursina import *
 from ursina.prefabs.first_person_controller import FirstPersonController
 
-# Create the main application window
-app = Ursina()
+# --- FIX: Pass the title directly to the Ursina constructor ---
+# Create the main application window and set the title in one step.
+app = Ursina(title='PyCraft')
+
+# --- Game Window Configuration ---
+# The title is now set above.
+window.size = (1280, 720)
+window.fullscreen = False
+window.fps_counter.enabled = False
+window.exit_button.visible = False
 
 # --- Block Color Definitions ---
 # Using a list makes it easy to manage colors and the toolbar.
@@ -23,13 +31,6 @@ block_colors = [
 # --- Game State ---
 # This variable will hold the index of the currently selected color.
 block_pick = 3  # Start with green selected
-
-# --- Game Window Configuration ---
-# --- FIX: Set resolution to 1280x720 and disable fullscreen ---
-window.size = (1280, 720)
-window.fullscreen = False
-window.fps_counter.enabled = False
-window.exit_button.visible = False
 
 
 # --- Voxel (Block) Class ---
