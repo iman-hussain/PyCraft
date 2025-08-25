@@ -4,6 +4,13 @@
 from ursina import *
 from ursina.prefabs.first_person_controller import FirstPersonController
 import json # Import the json library for saving and loading
+import tkinter as tk # Import tkinter for file dialogs
+from tkinter import filedialog
+
+# --- Initialize and hide tkinter's root window ---
+# This is necessary to use the file dialogs without showing a blank tk window.
+root = tk.Tk()
+root.withdraw()
 
 # Create the main application window
 app = Ursina(title='PyCraft')
@@ -54,13 +61,21 @@ world_size = 32
 
 def clear_canvas():
     """ Destroys all player-placed blocks. """
-    # Use a list comprehension to avoid modifying the list while iterating
     blocks_to_destroy = [e for e in scene.children if isinstance(e, Voxel) and not e.is_ground]
     for block in blocks_to_destroy:
         destroy(block)
 
 def save_canvas():
-    """ Saves the position and color of all player-placed blocks to a file. """
+    """ Opens a file dialog to save the canvas to a .pycraft file. """
+    # Open the native file save dialog
+    filepath = filedialog.asksaveasfilename(
+        defaultextension=".pycraft",
+        filetypes=[("PyCraft Files", "*.pycraft"), ("All Files", "*.*")]
+    )
+    # If the user cancels, the filepath will be empty, and we do nothing.
+    if not filepath:
+        return
+
     saved_blocks = []
     for entity in scene.children:
         if isinstance(entity, Voxel) and not entity.is_ground:
@@ -68,30 +83,37 @@ def save_canvas():
             col = [entity.color.r, entity.color.g, entity.color.b, entity.color.a]
             saved_blocks.append({'position': pos, 'color': col})
     
-    with open('pycraft_save.json', 'w') as f:
+    with open(filepath, 'w') as f:
         json.dump(saved_blocks, f, indent=4)
     
-    print("Canvas Saved!")
+    print(f"Canvas Saved to {filepath}")
     confirm_text.text = "Canvas Saved!"
     confirm_text.fade_in(duration=0.1)
     confirm_text.fade_out(duration=1, delay=1)
 
 
 def load_canvas():
-    """ Loads block data from a file and reconstructs the world. """
+    """ Opens a file dialog to load a .pycraft file. """
+    # Open the native file open dialog
+    filepath = filedialog.askopenfilename(
+        filetypes=[("PyCraft Files", "*.pycraft"), ("All Files", "*.*")]
+    )
+    # If the user cancels, the filepath will be empty, and we do nothing.
+    if not filepath:
+        return
+    
     clear_canvas()
     try:
-        with open('pycraft_save.json', 'r') as f:
+        with open(filepath, 'r') as f:
             loaded_blocks = json.load(f)
         
         for block_data in loaded_blocks:
             pos = tuple(block_data['position'])
-            # Convert color from 0-1 float to 0-255 int for rgba function
             col = color.rgba(*[int(c*255) for c in block_data['color']])
             Voxel(position=pos, block_color=col)
-        print("Canvas Loaded!")
-    except FileNotFoundError:
-        print("No save file found.")
+        print(f"Canvas Loaded from {filepath}")
+    except Exception as e:
+        print(f"Failed to load canvas: {e}")
     
     start_game()
 
