@@ -25,14 +25,18 @@ block_colors = [
 block_pick = 3  # Start with green selected
 
 # --- Game Window Configuration ---
+# --- FIX: Set resolution to 1280x720 and disable fullscreen ---
+window.size = (1280, 720)
+window.fullscreen = False
 window.fps_counter.enabled = False
 window.exit_button.visible = False
-window.fullscreen = True
+
 
 # --- Voxel (Block) Class ---
 # This class defines the behavior of each block in the world.
 class Voxel(Button):
-    def __init__(self, position=(0, 0, 0), block_color=color.green, is_ground=False):
+    # The 'add_collider' parameter distinguishes between solid and visual-only blocks.
+    def __init__(self, position=(0, 0, 0), block_color=color.green, add_collider=True):
         super().__init__(
             parent=scene,
             position=position,
@@ -40,45 +44,53 @@ class Voxel(Button):
             origin_y=0.5,
             color=block_color,
             highlight_color=block_color.tint(.2),
-            scale=1,
-            # DEFINITIVE FIX: Every single block now has a solid collider. This is the most reliable method.
-            collider='box'
+            scale=1
         )
-        # This flag is used to make the initial ground indestructible.
-        self.is_ground = is_ground
+        # Only add a collider if it's a player-placed block. This is a key optimization.
+        if add_collider:
+            self.collider = 'box'
 
     def input(self, key):
         if self.hovered:
             if key == 'left mouse down':
-                # You can only destroy blocks that are not part of the ground.
-                if not self.is_ground:
+                # You can only destroy blocks that are above the ground plane (y > 0).
+                if self.position.y > 0:
                     destroy(self)
 
             if key == 'right mouse down':
                 # Prevent placing a block inside the player.
                 new_block_position = self.position + mouse.normal
                 if distance(new_block_position, player.position) > 1.5:
-                    # Place a new block. It will be solid and NOT a ground block by default.
-                    Voxel(position=new_block_position, block_color=block_colors[block_pick])
+                    # Place a new block that IS solid.
+                    Voxel(position=new_block_position, block_color=block_colors[block_pick], add_collider=True)
 
 # --- World Generation ---
 world_size = 32
 for z in range(world_size):
     for x in range(world_size):
-        # Create the ground blocks. They are solid and marked as indestructible.
-        Voxel(position=(x, 0, z), block_color=color.green, is_ground=True)
+        # Create the VISUAL ground blocks. These have no collider to ensure performance and stability.
+        Voxel(position=(x, 0, z), block_color=color.green, add_collider=False)
 
+# --- DEFINITIVE FIX: Solid Ground Collider ---
+# This is a single, large, invisible but SOLID CUBE that the player stands on.
+# This is the most reliable way to prevent falling through the world.
+ground_collider = Entity(
+    model='cube',
+    scale=(world_size, 1, world_size),
+    # Position it to sit perfectly under the visual ground blocks.
+    position=(world_size/2 - 0.5, -0.5, world_size/2 - 0.5),
+    collider='box',
+    # Make it invisible.
+    visible=False
+)
 
 # --- UI Toolbar ---
-# This section creates the clickable toolbar at the bottom of the screen.
 toolbar = Entity(parent=camera.ui, position=(0, -0.45))
 toolbar_slots = []
 
-# This function will be called when a toolbar slot is clicked or a number key is pressed.
 def set_block_pick(index):
     global block_pick
     block_pick = index
-    # Move the selection cursor to the clicked slot.
     selection_cursor.x = toolbar_slots[index].x
 
 for i, bc in enumerate(block_colors):
@@ -87,24 +99,19 @@ for i, bc in enumerate(block_colors):
         model='quad',
         color=bc,
         scale=0.07,
-        # Position each slot horizontally.
         x=(-(len(block_colors)/2) + i) * 0.08,
-        # When clicked, call the set_block_pick function with its index.
         on_click=Func(set_block_pick, i)
     )
     toolbar_slots.append(slot)
 
-# --- NEW: Rainbow Selection Cursor ---
-# A highlight to show the selected block.
+# --- Rainbow Selection Border ---
 selection_cursor = Entity(
     parent=toolbar,
     model='quad',
     scale=0.08,
-    # Using the built-in rainbow texture for the border.
     texture='rainbow',
-    z=-1
+    z=1
 )
-# Initialize the cursor position to the starting block.
 selection_cursor.x = toolbar_slots[block_pick].x
 
 
@@ -116,10 +123,8 @@ def update():
     if player.z < 0: player.z = 0
     if player.z > world_size -1: player.z = world_size -1
 
-# This function is called by Ursina once for every key press.
 def input(key):
     global block_pick
-    # Mouse Wheel Block Selection
     if key == 'scroll up':
         block_pick = (block_pick + 1) % len(block_colors)
         set_block_pick(block_pick)
@@ -127,7 +132,6 @@ def input(key):
         block_pick = (block_pick - 1) % len(block_colors)
         set_block_pick(block_pick)
 
-    # Handle block selection with number keys 1 through 8.
     if key == '1': set_block_pick(0)
     if key == '2': set_block_pick(1)
     if key == '3': set_block_pick(2)
@@ -142,8 +146,15 @@ def input(key):
 player = FirstPersonController(jump_height=1.5, speed=6)
 player.gravity = 0.5
 player.cursor.visible = False
-# Center the player in the middle of the world, above the ground.
 player.set_position((world_size / 2, 5, world_size / 2))
+
+# --- DEFINITIVE FIX: Safe Spawn Platform ---
+# Create a small, solid platform directly under the spawn point as a final guarantee.
+spawn_center = player.position.xz
+Voxel(position=(spawn_center.x, 1, spawn_center.y), block_color=color.gold, add_collider=True)
+Voxel(position=(spawn_center.x+1, 1, spawn_center.y), block_color=color.gold, add_collider=True)
+Voxel(position=(spawn_center.x, 1, spawn_center.y+1), block_color=color.gold, add_collider=True)
+Voxel(position=(spawn_center.x+1, 1, spawn_center.y+1), block_color=color.gold, add_collider=True)
 
 sky = Sky()
 
